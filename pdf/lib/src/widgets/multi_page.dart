@@ -193,6 +193,21 @@ class MultiPage extends Page {
   /// This is not checked with a Release build.
   final int maxPages;
 
+  final Map<int, PdfRect> _layoutCache = {};
+
+  void _layoutWidget(
+      Widget child, Context context, BoxConstraints constraints) {
+    final widgetHash = child.hashCode;
+    if (_layoutCache.containsKey(widgetHash)) {
+      // Retrieve cached layout
+      child.box = _layoutCache[widgetHash];
+    } else {
+      // Perform layout and cache it
+      child.layout(context, constraints, parentUsesSize: false);
+      _layoutCache[widgetHash] = child.box!;
+    }
+  }
+
   void _paintChild(
       Context context, Widget child, double x, double y, double pageHeight) {
     if (mustRotate) {
@@ -301,8 +316,7 @@ class MultiPage extends Page {
 
         if (header != null) {
           final headerWidget = header!(context);
-
-          headerWidget.layout(context, constraints, parentUsesSize: false);
+          _layoutWidget(headerWidget, context, constraints);
           assert(headerWidget.box != null);
           offsetStart -= headerWidget.box!.height;
         }
@@ -311,6 +325,7 @@ class MultiPage extends Page {
           final footerWidget = footer!(context);
 
           footerWidget.layout(context, constraints, parentUsesSize: false);
+          _layoutWidget(footerWidget, context, constraints);
           assert(footerWidget.box != null);
           offsetEnd += footerWidget.box!.height;
         }
@@ -326,7 +341,7 @@ class MultiPage extends Page {
         savedContext = child.cloneContext();
       }
 
-      child.layout(context, constraints, parentUsesSize: false);
+      _layoutWidget(child, context, constraints);
       assert(child.box != null);
 
       final canSpan = child is SpanningWidget && child.canSpan;
