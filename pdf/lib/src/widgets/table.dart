@@ -131,11 +131,13 @@ class TableBorder extends Border {
 class TableContext extends WidgetContext {
   int firstLine = 0;
   int lastLine = 0;
+  double? previousCalculatedWidth;
 
   @override
   void apply(TableContext other) {
     firstLine = other.firstLine;
     lastLine = other.lastLine;
+    previousCalculatedWidth = other.previousCalculatedWidth;
   }
 
   @override
@@ -144,7 +146,8 @@ class TableContext extends WidgetContext {
   }
 
   @override
-  String toString() => '$runtimeType firstLine: $firstLine lastLine: $lastLine';
+  String toString() =>
+      '$runtimeType firstLine: $firstLine lastLine: $lastLine previousCalculatedwidth: $previousCalculatedWidth';
 }
 
 class ColumnLayout {
@@ -338,14 +341,18 @@ class Table extends Widget with SpanningWidget {
     _context.firstLine = _context.lastLine;
   }
 
-  @override
-  void layout(Context context, BoxConstraints constraints,
-      {bool parentUsesSize = false}) {
-    // Compute required width for all row/columns width flex
+  double _calculateTotalWidth(Context context, BoxConstraints constraints) {
+    final previousCalculatedWidth = _context.previousCalculatedWidth;
+
+    if (previousCalculatedWidth != null) {
+      return previousCalculatedWidth;
+    }
+
     final flex = <double>[];
-    _widths.clear();
-    _heights.clear();
-    var index = 0;
+
+    final usingFixedColumnWidth =
+        columnWidths?.values.any((element) => element is FixedColumnWidth) ??
+            false;
 
     for (final row in children) {
       for (final entry in row.children.asMap().entries) {
@@ -367,8 +374,7 @@ class Table extends Widget with SpanningWidget {
     }
 
     if (_widths.isEmpty) {
-      box = PdfRect.fromPoints(PdfPoint.zero, constraints.smallest);
-      return;
+      return 0.0;
     }
 
     final maxWidth = _widths.fold(0.0, (sum, element) => sum + element);
@@ -401,9 +407,31 @@ class Table extends Widget with SpanningWidget {
 
     final totalWidth = _widths.fold(0.0, (sum, element) => sum + element);
 
+    if (usingFixedColumnWidth) {
+      _context.apply(TableContext()..previousCalculatedWidth = totalWidth);
+    }
+
+    return totalWidth;
+  }
+
+  @override
+  void layout(Context context, BoxConstraints constraints,
+      {bool parentUsesSize = false}) {
+    // Compute required width for all row/columns width flex
+
+    _widths.clear();
+    _heights.clear();
+
+    final totalWidth = _calculateTotalWidth(context, constraints);
+
+    if (totalWidth == 0) {
+      box = PdfRect.fromPoints(PdfPoint.zero, constraints.smallest);
+      return;
+    }
+
     // Compute final widths
     var totalHeight = 0.0;
-    index = 0;
+    var index = 0;
     for (final row in children) {
       if (index++ < _context.firstLine && !row.repeat) {
         continue;
