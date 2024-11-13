@@ -25,6 +25,10 @@ enum TableCellVerticalAlignment { bottom, middle, top, full }
 
 enum TableWidth { min, max }
 
+typedef OnCellFormat = String Function(int index, dynamic data);
+typedef OnCellDecoration = BoxDecoration? Function(
+    int index, dynamic data, int rowNum);
+
 class TableBorder extends Border {
   const TableBorder({
     BorderSide left = BorderSide.none,
@@ -48,6 +52,20 @@ class TableBorder extends Border {
       bottom: side,
       horizontalInside: side,
       verticalInside: side,
+    );
+  }
+
+  factory TableBorder.symmetric({
+    BorderSide inside = BorderSide.none,
+    BorderSide outside = BorderSide.none,
+  }) {
+    return TableBorder(
+      top: outside,
+      right: outside,
+      bottom: outside,
+      left: outside,
+      horizontalInside: inside,
+      verticalInside: inside,
     );
   }
 
@@ -128,6 +146,20 @@ class FixedColumnWidth extends TableColumnWidth {
   ColumnLayout layout(
       Widget child, Context context, BoxConstraints? constraints) {
     return ColumnLayout(width, 0);
+  }
+}
+
+class IntrinsicColumnWidth extends TableColumnWidth {
+  const IntrinsicColumnWidth({this.flex = 1.0});
+
+  final double flex;
+
+  @override
+  ColumnLayout layout(
+      Widget child, Context context, BoxConstraints constraints) {
+    child.layout(context, const BoxConstraints());
+    final calculatedWidth = child.box?.width ?? 0.0;
+    return ColumnLayout(calculatedWidth, flex);
   }
 }
 
