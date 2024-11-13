@@ -132,12 +132,14 @@ class TableContext extends WidgetContext {
   int firstLine = 0;
   int lastLine = 0;
   double? previousCalculatedWidth;
+  List<double> widths = <double>[];
 
   @override
   void apply(TableContext other) {
     firstLine = other.firstLine;
     lastLine = other.lastLine;
     previousCalculatedWidth = other.previousCalculatedWidth;
+    widths = List<double>.from(other.widths);
   }
 
   @override
@@ -344,7 +346,9 @@ class Table extends Widget with SpanningWidget {
   double _calculateTotalWidth(Context context, BoxConstraints constraints) {
     final previousCalculatedWidth = _context.previousCalculatedWidth;
 
-    if (previousCalculatedWidth != null) {
+    if (previousCalculatedWidth != null && _context.widths.isNotEmpty) {
+      _widths.clear();
+      _widths.addAll(_context.widths);
       return previousCalculatedWidth;
     }
 
@@ -408,7 +412,9 @@ class Table extends Widget with SpanningWidget {
     final totalWidth = _widths.fold(0.0, (sum, element) => sum + element);
 
     if (usingFixedColumnWidth) {
-      _context.apply(TableContext()..previousCalculatedWidth = totalWidth);
+      _context.previousCalculatedWidth = totalWidth;
+      _context.widths.clear();
+      _context.widths.addAll(_widths);
     }
 
     return totalWidth;
@@ -433,47 +439,58 @@ class Table extends Widget with SpanningWidget {
     var totalHeight = 0.0;
     var index = 0;
     for (final row in children) {
+      // Skip rows before the firstLine unless they are repeating
       if (index++ < _context.firstLine && !row.repeat) {
         continue;
       }
 
-      var n = 0;
+      // Initialize row-specific variables once per row
       var x = 0.0;
+      double lineHeight = 0.0;
+      final rowChildren = row.children;
+      final numChildren = rowChildren.length;
 
-      var lineHeight = 0.0;
-      for (final child in row.children) {
-        final childConstraints = BoxConstraints.tightFor(width: _widths[n]);
+      // Cache width values to avoid repeated property access
+      for (int n = 0; n < numChildren; n++) {
+        final child = rowChildren[n];
+        final width = _widths[n];
+
+        final childConstraints = BoxConstraints.tightFor(width: width);
         child.layout(context, childConstraints);
-        assert(child.box != null);
         child.box =
             PdfRect(x, totalHeight, child.box!.width, child.box!.height);
-        x += _widths[n];
+        x += width;
+
+        // Update lineHeight based on the current child
         lineHeight = math.max(lineHeight, child.box!.height);
-        n++;
       }
 
       final align = row.verticalAlignment ?? defaultVerticalAlignment;
 
+      // Only re-layout if alignment requires full height for each cell
       if (align == TableCellVerticalAlignment.full) {
-        // Compute the layout again to give the full height to all cells
-        n = 0;
         x = 0;
-        for (final child in row.children) {
-          final childConstraints =
-              BoxConstraints.tightFor(width: _widths[n], height: lineHeight);
+        for (int n = 0; n < numChildren; n++) {
+          final child = rowChildren[n];
+          final width = _widths[n];
+          final childConstraints = BoxConstraints.tightFor(
+            width: width,
+            height: lineHeight,
+          );
           child.layout(context, childConstraints);
-          assert(child.box != null);
           child.box =
               PdfRect(x, totalHeight, child.box!.width, child.box!.height);
-          x += _widths[n];
-          n++;
+          x += width;
         }
       }
 
+      // Check if adding this row exceeds maxHeight; if so, stop
       if (totalHeight + lineHeight > constraints.maxHeight) {
         index--;
         break;
       }
+
+      // Update total height and store the line height
       totalHeight += lineHeight;
       _heights.add(lineHeight);
     }
