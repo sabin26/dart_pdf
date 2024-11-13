@@ -38,6 +38,19 @@ class TableBorder extends Border {
   final BorderSide horizontalInside;
   final BorderSide verticalInside;
 
+  factory TableBorder.all({
+    BorderSide side = const BorderSide(),
+  }) {
+    return TableBorder(
+      left: side,
+      top: side,
+      right: side,
+      bottom: side,
+      horizontalInside: side,
+      verticalInside: side,
+    );
+  }
+
   void paintTable(Context context, PdfRect box,
       [List<double?>? widths, List<double>? heights]) {
     super.paint(context, box);
