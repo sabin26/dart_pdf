@@ -453,12 +453,16 @@ class Table extends Widget with SpanningWidget {
         // Set up child constraints and layout
         final childConstraints = BoxConstraints.tightFor(width: width);
         child.layout(context, childConstraints);
-        child.box =
-            PdfRect(x, totalHeight, child.box!.width, child.box!.height);
-        x += width;
 
-        // Track the max height in the row
-        lineHeight = math.max(lineHeight, child.box!.height);
+        // Assign box to a local variable to avoid repeated force unwraps
+        final box = child.box;
+        if (box != null) {
+          child.box = PdfRect(x, totalHeight, box.width, box.height);
+          x += width;
+
+          // Track the max height in the row
+          lineHeight = math.max(lineHeight, box.height);
+        }
       }
 
       final align = row.verticalAlignment ?? defaultVerticalAlignment;
@@ -472,9 +476,12 @@ class Table extends Widget with SpanningWidget {
           final childConstraints =
               BoxConstraints.tightFor(width: width, height: lineHeight);
           child.layout(context, childConstraints);
-          child.box =
-              PdfRect(x, totalHeight, child.box!.width, child.box!.height);
-          x += width;
+
+          final box = child.box;
+          if (box != null) {
+            child.box = PdfRect(x, totalHeight, box.width, box.height);
+            x += width;
+          }
         }
       }
 
@@ -498,26 +505,26 @@ class Table extends Widget with SpanningWidget {
       final rowHeight = _heights[heightIndex++];
 
       for (final child in row.children) {
-        double childY;
-        switch (align) {
-          case TableCellVerticalAlignment.bottom:
-            childY = totalHeight - child.box!.y - rowHeight;
-            break;
-          case TableCellVerticalAlignment.middle:
-            childY = totalHeight -
-                child.box!.y -
-                (rowHeight + child.box!.height) / 2;
-            break;
-          case TableCellVerticalAlignment.top:
-          case TableCellVerticalAlignment.full:
-          default:
-            childY = totalHeight - child.box!.y - child.box!.height;
-            break;
-        }
+        final box = child.box;
+        if (box != null) {
+          double childY;
+          switch (align) {
+            case TableCellVerticalAlignment.bottom:
+              childY = totalHeight - box.y - rowHeight;
+              break;
+            case TableCellVerticalAlignment.middle:
+              childY = totalHeight - box.y - (rowHeight + box.height) / 2;
+              break;
+            case TableCellVerticalAlignment.top:
+            case TableCellVerticalAlignment.full:
+            default:
+              childY = totalHeight - box.y - box.height;
+              break;
+          }
 
-        // Update the child's box position with the new Y position
-        child.box =
-            PdfRect(child.box!.x, childY, child.box!.width, child.box!.height);
+          // Update the child's box position with the new Y position
+          child.box = PdfRect(box.x, childY, box.width, box.height);
+        }
       }
     }
 
